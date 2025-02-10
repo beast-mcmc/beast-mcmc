@@ -42,13 +42,13 @@ public class InverseGammaDistribution implements Distribution {
     private double shape, scale;
 
     private final double factor;
-    private final double logFacor;
+    private final double logFactor;
 
     public InverseGammaDistribution(double shape, double scale) {
         this.shape = shape;
         this.scale = scale;
         this.factor = Math.pow(scale, shape) / Math.exp(GammaFunction.lnGamma(shape));
-        this.logFacor = shape * Math.log(scale) - GammaFunction.lnGamma(shape);
+        this.logFactor = shape * Math.log(scale) - GammaFunction.lnGamma(shape);
     }
 
     public double getShape() {
@@ -72,7 +72,7 @@ public class InverseGammaDistribution implements Distribution {
     }
 
     public double logPdf(double x) {
-        return logPdf(x, shape, scale, logFacor);
+        return logPdf(x, shape, scale, logFactor);
     }
 
     public double cdf(double x) {
@@ -139,11 +139,11 @@ public class InverseGammaDistribution implements Distribution {
      * @param scale scale parameter
      * @return log pdf value
      */
-    public static double logPdf(double x, double shape, double scale, double factor) {
+    public static double logPdf(double x, double shape, double scale, double lfactor) {
         if (x <= 0)
             return Double.NEGATIVE_INFINITY;
 
-        return  factor + shape*Math.log(scale) - (shape + 1)*Math.log(x) - (scale/x) - GammaFunction.lnGamma(shape);
+        return  lfactor + shape*Math.log(scale) - (shape + 1)*Math.log(x) - (scale/x) - GammaFunction.lnGamma(shape);
     }
 
     /**
