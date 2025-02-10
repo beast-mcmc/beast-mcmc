@@ -262,6 +262,29 @@ public final class MarkovChain implements Serializable {
                 // The new model is evaluated
                 score = evaluate(likelihood);
 
+                boolean EXTRA_CHECK = true;
+
+                if (EXTRA_CHECK) {
+                    String before = likelihood instanceof CompoundLikelihood ?
+                            ((CompoundLikelihood) likelihood).getDiagnosis() : "";
+
+                    likelihood.makeDirty();
+                    double newScore = evaluate(likelihood);
+
+                    String after = likelihood instanceof CompoundLikelihood ?
+                            ((CompoundLikelihood) likelihood).getDiagnosis() : "";
+
+                    if (Math.abs(score - newScore) > evaluationTestThreshold) {
+
+                        System.err.println("Latent error:");
+                        System.err.println(before);
+                        System.err.println();
+                        System.err.println(after);
+
+                        System.exit(-1);
+                    }
+                }
+
                 if (PROFILE) {
                     long duration = System.currentTimeMillis() - elapsedTime;
                     mcmcOperator.addEvaluationTime(duration);
