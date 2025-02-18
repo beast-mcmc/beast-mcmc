@@ -237,6 +237,7 @@
                 <include name="dr/evomodel/speciation/**/*.class"/>
                 <include name="dr/evomodel/substmodel/**/*.class"/>
                 <include name="dr/evomodel/tree/**/*.class"/>
+                <include name="dr/evomodel/bigfasttree/**/*.class"/>
                 <include name="dr/evomodel/treelikelihood/**/*.class"/>
                 <include name="dr/evomodel/treedatalikelihood/**/*.class"/>
                 <include name="dr/evomodelxml/**/*.class"/>

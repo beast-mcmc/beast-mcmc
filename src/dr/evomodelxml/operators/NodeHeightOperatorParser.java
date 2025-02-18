@@ -48,9 +48,7 @@ public class NodeHeightOperatorParser extends AbstractXMLObjectParser {
         RANDOMWALK("random walk"),
         SCALEROOT("scale root"),
         SCALEALL("scale all internal");
-//        MULTIMOVEUNIFORM("multiMoveUniform");
-        // -JT the order in which nodes are picked matters but there is more than
-        // one way to pick the nodes I don't trust the multimove operator
+
 
         OperatorType(String name) {
             this.name = name;
@@ -107,12 +105,6 @@ public class NodeHeightOperatorParser extends AbstractXMLObjectParser {
                     throw new XMLParseException("The UniformNodeHeightOperator scaleFactor attribute must be between 0 and 1.");
                 }
             }
-            if (xo.hasAttribute(MEAN_COUNT)) {
-                tuningParameter = xo.getDoubleAttribute(MEAN_COUNT);
-                if (tuningParameter <= 0.0) {
-                    throw new XMLParseException("The UniformNodeHeightOperator nonshifted mean attribute must be positive and non-zero.");
-                }
-            }
 
             final double targetAcceptance = xo.getAttribute(TARGET_ACCEPTANCE, 0.234);
 
@@ -126,8 +118,6 @@ public class NodeHeightOperatorParser extends AbstractXMLObjectParser {
                 case SCALEROOT:
                 case SCALEALL:
                     return new ScaleNodeHeightOperator(treeModel, weight, tuningParameter, operatorType, mode, targetAcceptance);
-//                case MULTIMOVEUNIFORM:
-//                    return new MultiMoveUniformNodeHeightOperator(treeModel, weight, tuningParameter,mode,targetAcceptance);
                 default:
                     throw new IllegalArgumentException("Unknown operator type");
             }

@@ -239,6 +239,23 @@ public class BeastGenerator extends Generator {
                 }
             }
 
+            //+++++++++++++++++ ThorneyBEAST / clock model Verification ++++++++++++++
+
+            for (PartitionClockModel model : options.getPartitionClockModels()) {
+                for (AbstractPartitionData pd : options.getDataPartitions(model)) {
+                    if(pd.getDataType().getType() ==DataType.TREE){
+                        PartitionTreeModel tm = pd.getPartitionTreeModel();
+                        if(tm.isUsingThorneyBEAST() && !PartitionTreeModel.thorneyCompatibleClocks.contains(model.getClockType())){
+                            throw new GeneratorException("Gradients for "+model.getClockType()+ 
+                            " are not implemented for Thorney BEAST." +
+                            "Please use a clock model that does not rely on gradients.", BeautiFrame.CLOCK_MODELS);
+
+                        }
+                    }
+                }
+            }
+
+
             //++++++++++++++++ Prior Bounds ++++++++++++++++++
             for (Parameter param : options.selectParameters()) {
                 if (!Double.isNaN(param.getInitial()) ) {

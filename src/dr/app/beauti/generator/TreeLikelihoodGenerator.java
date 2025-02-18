@@ -29,6 +29,9 @@ package dr.app.beauti.generator;
 
 import dr.app.beauti.types.ClockType;
 import dr.evomodel.tree.DefaultTreeModel;
+import dr.evomodelxml.bigfasttree.thorney.ConstrainedBranchLengthProviderParser;
+import dr.evomodelxml.bigfasttree.thorney.PoissonBranchLengthLikelihoodParser;
+import dr.evomodelxml.bigfasttree.thorney.ThorneyTreeLikelihoodParser;
 import dr.evomodelxml.treedatalikelihood.TreeDataLikelihoodParser;
 import dr.evomodelxml.treelikelihood.MarkovJumpsTreeLikelihoodParser;
 import dr.app.beauti.components.ComponentFactory;
@@ -36,12 +39,19 @@ import dr.app.beauti.components.ancestralstates.AncestralStatesComponentOptions;
 import dr.app.beauti.options.*;
 import dr.app.beauti.util.XMLWriter;
 import dr.evolution.datatype.DataType;
+import dr.evolution.tree.TreeUtils;
+import dr.evomodel.bigfasttree.thorney.ConstrainedTreeBranchLengthProvider;
+import dr.evomodel.bigfasttree.thorney.ConstrainedTreeModel;
+import dr.evomodel.bigfasttree.thorney.MutationBranchMap;
+import dr.evomodel.bigfasttree.thorney.PoissonBranchLengthLikelihoodDelegate;
 import dr.evomodel.branchratemodel.BranchRateModel;
 import dr.oldevomodel.sitemodel.GammaSiteModel;
 import dr.oldevomodel.sitemodel.SiteModel;
 import dr.oldevomodelxml.treelikelihood.AncestralStateTreeLikelihoodParser;
 import dr.oldevomodelxml.treelikelihood.TreeLikelihoodParser;
 import dr.evoxml.AlignmentParser;
+import dr.evoxml.NewickParser;
+import dr.evoxml.SimpleTreeParser;
 import dr.evoxml.SitePatternsParser;
 import dr.util.Attribute;
 import dr.xml.XMLParser;
@@ -74,11 +84,79 @@ public class TreeLikelihoodGenerator extends Generator {
 
                     // if the partition isn't an instanceof PartitionData then it doesn't
                     // need a TreeLikelihood (it is probably a Tree Partition)
-//                } else {
-//                    throw new GeneratorException("Unrecognized partition:\n" + partition.getName());
+               } else {
+                   if(partition instanceof TreePartitionData) {
+                        PartitionTreeModel model = partition.getPartitionTreeModel();
+                        if(model.isUsingThorneyBEAST()){
+                            writeThorneyTreeLikelihood((TreePartitionData) partition, writer);
+                            writer.writeText("");
+                        }
+
+                   }
                 }
             }
         }
+    }
+
+    public void writeThorneyTreeLikelihood(TreePartitionData partition,XMLWriter writer){
+       // write mutation branch map
+
+/**
+ *     <simpleMutationBranchMap id="branchMutationCounts" scale="29903.0">
+        <constrainedTreeModel idref="treeModel"/>
+        <dataTree>
+            <tree idref="dataTree"/>
+        </dataTree>
+    </simpleMutationBranchMap>
+ */
+        
+        PartitionTreeModel treeModel = partition.getPartitionTreeModel();
+        PartitionClockModel clockModel = partition.getPartitionClockModel();
+        String prefix = treeModel.getPrefix() + clockModel.getPrefix(); // use the treemodel prefix
+        
+        String idString = prefix + "treeLikelihood";
+        String branchMapIdD = prefix + "branchMutationCounts";
+
+
+        writer.writeComment("A map between the branches in the tree model and the data providing the number of mutations along each branch.");
+        writer.writeTag(ConstrainedBranchLengthProviderParser.MUTATION_BRANCH_MAP, new Attribute[]{
+            new Attribute.Default<>(XMLParser.ID,branchMapIdD),
+            new Attribute.Default<Double>("scale",treeModel.getThorneyScaler()),
+        },false);
+            writer.writeIDref(ConstrainedTreeModel.CONSTRAINED_TREE_MODEL,prefix+ DefaultTreeModel.TREE_MODEL);
+            writer.writeTag(ConstrainedBranchLengthProviderParser.DATA_TREE, new Attribute[]{}, false);
+                writer.writeOpenTag(
+                            NewickParser.NEWICK,
+                            new Attribute[]{
+                                new Attribute.Default<>(XMLParser.ID, prefix + "dataTree"),
+                                new Attribute.Default<Boolean>(NewickParser.USING_HEIGHTS, true),
+                                new Attribute.Default<Boolean>(NewickParser.USING_DATES, false)
+                            }
+                    );
+                        writer.writeText(TreeUtils.newick(treeModel.getTreePartitionData().getTrees().getTrees().get(0)));
+                    writer.writeCloseTag(NewickParser.NEWICK);
+            writer.writeCloseTag(ConstrainedBranchLengthProviderParser.DATA_TREE);
+        writer.writeCloseTag(ConstrainedBranchLengthProviderParser.MUTATION_BRANCH_MAP);
+
+
+
+        writer.writeOpenTag(ThorneyTreeLikelihoodParser.THORNEY_DATA_LIKELIHOOD_DELEGATE,  new Attribute[]{
+            new Attribute.Default<String>(XMLParser.ID, idString)
+        });
+
+        writer.writeIDref(ConstrainedTreeModel.CONSTRAINED_TREE_MODEL, prefix + DefaultTreeModel.TREE_MODEL);
+        writer.writeIDref(ConstrainedBranchLengthProviderParser.MUTATION_BRANCH_MAP, branchMapIdD );
+        
+
+        writer.writeTag( PoissonBranchLengthLikelihoodParser.POISSON_BRANCH_LENGTH_LIKELIHOOD,
+        new Attribute[] {
+            new Attribute.Default<>(XMLParser.ID, prefix + "branchMutationLikelihood"),
+            new Attribute.Default<Double>("scale", treeModel.getThorneyScaler()),
+    }, true);
+
+        ClockModelGenerator.writeBranchRatesModelRef(clockModel, writer);
+
+        writer.writeCloseTag(ThorneyTreeLikelihoodParser.THORNEY_DATA_LIKELIHOOD_DELEGATE);
     }
 
     public void writeTreeDataLikelihood(List<PartitionData> partitions, XMLWriter writer) {
@@ -287,6 +365,16 @@ public class TreeLikelihoodGenerator extends Generator {
             AncestralStatesComponentOptions ancestralStatesOptions = (AncestralStatesComponentOptions) options
                     .getComponentOptions(AncestralStatesComponentOptions.class);
 
+            // TODO moving poisson branch length to a substitution model would make this logic simplier
+
+            PartitionTreeModel treeModel = partition.getPartitionTreeModel();
+            if(treeModel.isUsingThorneyBEAST()){
+                PartitionClockModel clockModel = partition.getPartitionClockModel();
+                String prefix = treeModel.getPrefix() + clockModel.getPrefix(); // use the treemodel prefix
+                String idString = prefix + "treeLikelihood"; // Line 117
+                writer.writeIDref(ThorneyTreeLikelihoodParser.THORNEY_DATA_LIKELIHOOD_DELEGATE, idString);
+            
+            }
             PartitionSubstitutionModel model = partition.getPartitionSubstitutionModel();
 
             if (model == null) {

@@ -27,6 +27,7 @@
 
 package dr.evomodel.treedatalikelihood.discrete;
 
+import dr.evolution.tree.NodeRef;
 import dr.evomodel.tree.TreeChangedEvent;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodel.tree.TreeParameterModel;
@@ -38,7 +39,7 @@ import dr.xml.*;
  * @author Marc A. Suchard
  * @author Xiang Ji
  */
-public class NodeHeightProxyParameter extends Parameter.Proxy {
+public class NodeHeightProxyParameter extends Parameter.Proxy implements Bounds<Double> {
 
     private TreeModel tree;
     private TreeParameterModel indexHelper;
@@ -51,6 +52,7 @@ public class NodeHeightProxyParameter extends Parameter.Proxy {
         this.indexHelper = new TreeParameterModel(tree,
                 new Parameter.Default(includeRoot ? tree.getInternalNodeCount() : tree.getInternalNodeCount() - 1, 0.0),
                 includeRoot);
+                
     }
 
     public TreeModel getTree() {
@@ -76,7 +78,41 @@ public class NodeHeightProxyParameter extends Parameter.Proxy {
     public void setParameterValueQuietly(int dim, double value) {
         tree.setNodeHeightQuietly(tree.getNode(getNodeNumber(dim)), value);
     }
+    @Override
+    public Bounds<Double> getBounds() {
+        return this;
+    }
+    //bounds implementation
+    @Override
+    public Double getUpperLimit(int dimension) {
+        NodeRef node = tree.getNode(getNodeNumber(dimension));
+        if(tree.isRoot(node)){
+            return Double.POSITIVE_INFINITY;
+        }else{
+            return tree.getNodeHeight(tree.getParent(node));
+        }
+        
+    }
 
+    @Override
+    public Double getLowerLimit(int dimension) {
+        // TODO Auto-generated method stub
+        NodeRef node = tree.getNode(getNodeNumber(dimension));
+        if (tree.isExternal(node)) {
+            return 0.0;
+        } else {
+            double max = 0.0;
+            for(int i = 0; i < tree.getChildCount(node); i++) {
+                max = Math.max(max, tree.getNodeHeight(tree.getChild(node,i)));
+            }
+            return max;
+        }
+    }
+
+    @Override
+    public int getBoundsDimension() {
+                return this.getDimension();       
+    }
     public String toString() {
         StringBuilder buffer = new StringBuilder(String.valueOf(getParameterValue(0)));
         Bounds bounds = null;
@@ -98,7 +134,7 @@ public class NodeHeightProxyParameter extends Parameter.Proxy {
     }
 
     private static final String NODE_HEIGHT_PARAMETER = "nodeHeightProxyParameter";
-    private static final String INCLUDE_ROOT = "rootNode";
+    public static final String INCLUDE_ROOT = "rootNode";
 
     public static AbstractXMLObjectParser PARSER = new AbstractXMLObjectParser() {
         @Override
@@ -132,3 +168,5 @@ public class NodeHeightProxyParameter extends Parameter.Proxy {
         }
     };
 }
+
+

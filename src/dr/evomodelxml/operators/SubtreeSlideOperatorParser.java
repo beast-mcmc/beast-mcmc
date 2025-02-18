@@ -27,8 +27,8 @@
 
 package dr.evomodelxml.operators;
 
+import dr.evomodel.bigfasttree.BigFastTreeModel;
 import dr.evomodel.operators.SubtreeSlideOperator;
-import dr.evomodel.tree.DefaultTreeModel;
 import dr.evomodel.tree.TreeModel;
 import dr.inference.operators.AdaptableMCMCOperator;
 import dr.inference.operators.AdaptationMode;
@@ -66,7 +66,11 @@ public class SubtreeSlideOperatorParser extends AbstractXMLObjectParser {
             }
         }
 
-        DefaultTreeModel treeModel = (DefaultTreeModel) xo.getChild(DefaultTreeModel.class);
+        TreeModel treeModel = (TreeModel) xo.getChild(TreeModel.class);
+
+        if((swapRates || swapTraits) && treeModel instanceof BigFastTreeModel) {
+            throw new XMLParseException("Swapping rates or traits is not implemented for BFT model yet.");
+        }
         final double weight = xo.getDoubleAttribute(MCMCOperator.WEIGHT);
 
         final double targetAcceptance = xo.getAttribute(TARGET_ACCEPTANCE, 0.234);

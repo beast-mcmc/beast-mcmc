@@ -48,7 +48,7 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
 
     private static final boolean DEBUG = false;
 
-    private DefaultTreeModel tree = null;
+    private TreeModel tree = null;
     private double size = 1.0;
     private boolean gaussian = false;
     private final boolean swapInRandomRate;
@@ -57,7 +57,7 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
     private AdaptationMode mode = AdaptationMode.DEFAULT;
     private final double targetAcceptance;
 
-    public SubtreeSlideOperator(DefaultTreeModel tree, double weight, double size, boolean gaussian,
+    public SubtreeSlideOperator(TreeModel tree, double weight, double size, boolean gaussian,
                                 boolean swapRates, boolean swapTraits, boolean scaleDirichletBranches,
                                 AdaptationMode mode, double targetAcceptance) {
         super(mode, targetAcceptance);

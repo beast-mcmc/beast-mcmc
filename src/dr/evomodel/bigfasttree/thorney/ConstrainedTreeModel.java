@@ -1441,6 +1441,42 @@ public class ConstrainedTreeModel extends TreeModel {
             public final int baseNodeNumber;
 
         }
+
+        @Override
+        public boolean hasNodeTraits() {
+            // TODO Auto-generated method stub
+            throw new UnsupportedOperationException("Unimplemented method 'hasNodeTraits'");
+        }
+
+        @Override
+        public void swapAllTraits(NodeRef node1, NodeRef node2) {
+            // TODO Auto-generated method stub
+            throw new UnsupportedOperationException("Unimplemented method 'swapAllTraits'");
+        }
+
+        @Override
+        public boolean hasRates() {
+            // TODO Auto-generated method stub
+            throw new UnsupportedOperationException("Unimplemented method 'hasRates'");
+        }
+    }
+
+    @Override
+    public boolean hasNodeTraits() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'hasNodeTraits'");
+    }
+
+    @Override
+    public void swapAllTraits(NodeRef node1, NodeRef node2) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'swapAllTraits'");
+    }
+
+    @Override
+    public boolean hasRates() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'hasRates'");
     }
 
 }

@@ -31,7 +31,11 @@ import dr.evolution.tree.Tree;
 import dr.evolution.util.Date;
 import dr.evolution.util.Taxon;
 import dr.evomodel.bigfasttree.BigFastTreeModel;
+import dr.evomodel.bigfasttree.thorney.RootHeightProxyParameter;
+import dr.evomodel.treedatalikelihood.discrete.NodeHeightProxyParameter;
+import dr.evomodelxml.tree.TreeModelParser;
 import dr.inference.model.Parameter;
+import dr.inference.model.ParameterParser;
 import dr.xml.*;
 
 import java.util.logging.Logger;
@@ -41,46 +45,17 @@ import java.util.logging.Logger;
  */
 public class BigFastTreeModelParser extends AbstractXMLObjectParser {
 
-    public static final String ROOT_HEIGHT = "rootHeight";
-    public static final String LEAF_HEIGHT = "leafHeight";
-
-    public static final String NODE_HEIGHTS = "nodeHeights";
-    public static final String NODE_RATES = "nodeRates";
-
-    public static final String ROOT_NODE = "rootNode";
-    public static final String INTERNAL_NODES = "internalNodes";
-    public static final String LEAF_NODES = "leafNodes";
-
-    public static final String LEAF_HEIGHTS = "leafHeights";
-
-    public static final String FIX_HEIGHTS = "fixHeights";
-    public static final String FIX_TREE = "fixTree";
-
-    public static final String TAXON = "taxon";
-    public static final String NAME = "name";
 
     public BigFastTreeModelParser() {
         rules = new XMLSyntaxRule[]{
                 new ElementRule(Tree.class),
-//                new ElementRule(ROOT_HEIGHT, Parameter.class, "A parameter definition with id only (cannot be a reference!)", false),
-//                AttributeRule.newBooleanRule(FIX_HEIGHTS, true),
-//                AttributeRule.newBooleanRule(FIX_TREE, true),
-//                new ElementRule(NODE_HEIGHTS,
-//                        new XMLSyntaxRule[]{
-//                                AttributeRule.newBooleanRule(ROOT_NODE, true, "If true the root height is included in the parameter"),
-//                                AttributeRule.newBooleanRule(INTERNAL_NODES, true, "If true the internal node heights (minus the root) are included in the parameter"),
-//                                new ElementRule(Parameter.class, "A parameter definition with id only (cannot be a reference!)")
-//                        }, 1, Integer.MAX_VALUE),
-//                new ElementRule(LEAF_HEIGHT,
-//                        new XMLSyntaxRule[]{
-//                                AttributeRule.newStringRule(TAXON, false, "The name of the taxon for the leaf"),
-//                                new ElementRule(Parameter.class, "A parameter definition with id only (cannot be a reference!)")
-//                        }, 0, Integer.MAX_VALUE),
-//                new ElementRule(LEAF_HEIGHTS,
-//                        new XMLSyntaxRule[]{
-//                                new ElementRule(TaxonList.class, "A set of taxa for which leaf heights are required"),
-//                                new ElementRule(Parameter.class, "A compound parameter containing the leaf heights")
-//                        }, true)
+                new ElementRule(TreeModelParser.ROOT_HEIGHT, Parameter.class, "A parameter definition with id only (cannot be a reference!)", false),
+                new ElementRule(TreeModelParser.NODE_HEIGHTS,
+                            new XMLSyntaxRule[]{
+                                    AttributeRule.newBooleanRule(TreeModelParser.ROOT_NODE, true, "If true the root height is included in the parameter"),
+                                    AttributeRule.newBooleanRule(TreeModelParser.INTERNAL_NODES, true, "If true the internal node heights (minus the root) are included in the parameter"),
+                                    new ElementRule(Parameter.class, "A parameter definition with id only (cannot be a reference!)")
+                            }, 1, Integer.MAX_VALUE),
         };
     }
 
@@ -94,92 +69,55 @@ public class BigFastTreeModelParser extends AbstractXMLObjectParser {
     public Object parseXMLObject(XMLObject xo) throws XMLParseException {
 
         Tree tree = (Tree) xo.getChild(Tree.class);
-        boolean fixHeights = xo.getAttribute(FIX_HEIGHTS, false);
-        boolean fixTree = xo.getAttribute(FIX_TREE, false);
+        boolean fixHeights = xo.getAttribute(TreeModelParser.FIX_HEIGHTS, false);
+        boolean fixTree = xo.getAttribute(TreeModelParser.FIX_TREE, false);
 
         BigFastTreeModel treeModel = new BigFastTreeModel(xo.getId(), tree, fixHeights, fixTree);
 
+        // Make proxy parameters
+        RootHeightProxyParameter rootHeightProxyParameter = new RootHeightProxyParameter("Placeholder_Root_Proxy",
+                treeModel); // id overwritten below
+        NodeHeightProxyParameter nodeHeightProxyParameter = new NodeHeightProxyParameter("Placeholder_nodeHeight_Proxy",
+                treeModel, false);
+        NodeHeightProxyParameter allNodeHeightProxyParameter = new NodeHeightProxyParameter(
+                "Placeholder_allNodeHeight_Proxy", treeModel, true);
+        // parse proxy parameters
+        for (int i = 0; i < xo.getChildCount(); i++) {
+            if (xo.getChild(i) instanceof XMLObject) {
+
+                XMLObject cxo = (XMLObject) xo.getChild(i);
+
+                if (cxo.getName().equals(TreeModelParser.ROOT_HEIGHT)) {
+                    ParameterParser.replaceParameter(cxo, rootHeightProxyParameter);
+                } else if (cxo.getName().equals(TreeModelParser.NODE_HEIGHTS)) {
+
+                    boolean rootNode = cxo.getAttribute(TreeModelParser.ROOT_NODE, false);
+                    boolean internalNodes = cxo.getAttribute(TreeModelParser.INTERNAL_NODES, false);
+                    boolean leafNodes = cxo.getAttribute(TreeModelParser.LEAF_NODES, false);
+                    if (leafNodes) {
+                        throw new XMLParseException("leafNodes not currently implemented for bft tree");
+                    }
+                    if (!rootNode && !internalNodes) {
+                        throw new XMLParseException(
+                                "internal or internal and rootNode nodes must be selected for the nodeHeights element");
+                    }
+                    if (internalNodes && rootNode) {
+                        ParameterParser.replaceParameter(cxo, allNodeHeightProxyParameter);
+                    } else if (internalNodes && !rootNode) {
+                        ParameterParser.replaceParameter(cxo, nodeHeightProxyParameter);
+                    }
+// options for default tree that are not implemented here yet.
+                }else if(cxo.getName().equals(TreeModelParser.LEAF_HEIGHT) || cxo.getName().equals(TreeModelParser.LEAF_HEIGHTS)) {
+                    throw new XMLParseException("Leaf sampling not implemented for bft trees");
+                }else if(cxo.getName().equals(TreeModelParser.NODE_RATES) || cxo.getName().equals(TreeModelParser.NODE_TRAITS)|| cxo.getName().equals(TreeModelParser.LEAF_TRAIT)) {
+                    throw new XMLParseException("Leaf sampling not implemented for bft trees");
+                }
+            }
+        }
+
         Logger.getLogger("dr.evomodel").info("\nCreating the big fast tree model, '" + xo.getId() + "'");
 
-//        for (int i = 0; i < xo.getChildCount(); i++) {
-//            if (xo.getChild(i) instanceof XMLObject) {
-//
-//                XMLObject cxo = (XMLObject) xo.getChild(i);
-//
-//                if (cxo.getName().equals(ROOT_HEIGHT)) {
-//
-//                    ParameterParser.replaceParameter(cxo, treeModel.getRootHeightParameter());
-//
-//                } else if (cxo.getName().equals(LEAF_HEIGHT)) {
-//
-//                    String taxonName;
-//                    if (cxo.hasAttribute(TAXON)) {
-//                        taxonName = cxo.getStringAttribute(TAXON);
-//                    } else {
-//                        throw new XMLParseException("taxa element missing from leafHeight element in treeModel element");
-//                    }
-//
-//                    int index = treeModel.getTaxonIndex(taxonName);
-//                    if (index == -1) {
-//                        throw new XMLParseException("taxon " + taxonName + " not found for leafHeight element in treeModel element");
-//                    }
-//                    NodeRef node = treeModel.getExternalNode(index);
-//
-//                    Parameter newParameter = treeModel.getLeafHeightParameter(node);
-//
-//                    ParameterParser.replaceParameter(cxo, newParameter);
-//
-//                    Taxon taxon = treeModel.getTaxon(index);
-//
-//                    setUncertaintyBounds(newParameter, taxon);
-//
-//                } else if (cxo.getName().equals(LEAF_HEIGHTS)) {
-//                    // get a set of leaf height parameters out as a compound parameter...
-//
-//                    TaxonList taxa = (TaxonList)cxo.getChild(TaxonList.class);
-//                    Parameter offsetParameter = (Parameter)cxo.getChild(Parameter.class);
-//
-//                    CompoundParameter leafHeights = new CompoundParameter("leafHeights");
-//                    for (Taxon taxon : taxa) {
-//                        int index = treeModel.getTaxonIndex(taxon);
-//                        if (index == -1) {
-//                            throw new XMLParseException("taxon " + taxon.getId() + " not found for leafHeight element in treeModel element");
-//                        }
-//                        NodeRef node = treeModel.getExternalNode(index);
-//
-//                        Parameter newParameter = treeModel.getLeafHeightParameter(node);
-//
-//                        leafHeights.addParameter(newParameter);
-//
-//                        setUncertaintyBounds(newParameter, taxon);
-//                    }
-//
-//                    ParameterParser.replaceParameter(cxo, leafHeights);
-//
-//                } else if (cxo.getName().equals(NODE_HEIGHTS)) {
-//
-//                    boolean rootNode = cxo.getAttribute(ROOT_NODE, false);
-//                    boolean internalNodes = cxo.getAttribute(INTERNAL_NODES, false);
-//                    boolean leafNodes = cxo.getAttribute(LEAF_NODES, false);
-//
-//                    if (!rootNode && !internalNodes && !leafNodes) {
-//                        throw new XMLParseException("one or more of root, internal or leaf nodes must be selected for the nodeHeights element");
-//                    }
-//
-//                    ParameterParser.replaceParameter(cxo, treeModel.createNodeHeightsParameter(rootNode, internalNodes, leafNodes));
-//
-//                } else {
-//                    throw new XMLParseException("illegal child element in " + getParserName() + ": " + cxo.getName());
-//                }
-//
-//            } else if (xo.getChild(i) instanceof Tree) {
-//                // do nothing - already handled
-//            } else {
-//                throw new XMLParseException("illegal child element in  " + getParserName() + ": " + xo.getChildName(i) + " " + xo.getChild(i));
-//            }
-//        }
-        
-//        Logger.getLogger("dr.evomodel").info("  initial tree topology = " + TreeUtils.uniqueNewick(treeModel, treeModel.getRoot()));
+
         Logger.getLogger("dr.evomodel").info("  taxon count = " + treeModel.getExternalNodeCount());
         Logger.getLogger("dr.evomodel").info("  tree height = " + treeModel.getNodeHeight(treeModel.getRoot()));
         return treeModel;

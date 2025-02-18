@@ -27,10 +27,10 @@
 
 package dr.app.beauti.options;
 
-import dr.app.beauti.mcmcpanel.MCMCPanel;
 import dr.app.beauti.types.*;
 import dr.evolution.tree.Tree;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -52,10 +52,14 @@ public class PartitionTreeModel extends PartitionOptions {
     private boolean isUsingExternalEmpiricalTreeFile = false;
     private String empiricalTreesFilename = null;
 
+    private double thorneyScaler = 1.0;
     private boolean isNewick = true;
 
     private boolean hasTipCalibrations = false;
     private boolean hasNodeCalibrations = false;
+    public static List<ClockType> thorneyCompatibleClocks = Arrays.asList( ClockType.STRICT_CLOCK, ClockType.UNCORRELATED,
+            ClockType.FIXED_LOCAL_CLOCK, ClockType.RANDOM_LOCAL_CLOCK, ClockType.FIXED_LOCAL_CLOCK,
+            ClockType.MIXED_EFFECTS_CLOCK );
 
     private final TreePartitionData treePartitionData;
 
@@ -95,7 +99,7 @@ public class PartitionTreeModel extends PartitionOptions {
         userStartingTree = source.userStartingTree;
 
         isNewick = source.isNewick;
-//        initialRootHeight = source.initialRootHeight;
+        // initialRootHeight = source.initialRootHeight;
 
         initModelParametersAndOpererators();
     }
@@ -108,7 +112,8 @@ public class PartitionTreeModel extends PartitionOptions {
         createParameterTree(this, "treeModel.rootHeight", "root height of the tree", true);
 
         if (treePartitionData == null) {
-            //TODO treeBitMove should move to PartitionClockModelTreeModelLink, after Alexei finish
+            // TODO treeBitMove should move to PartitionClockModelTreeModelLink, after
+            // Alexei finish
             createOperator("treeBitMove", "Tree", "Swaps the rates and change locations of local clocks", "tree",
                     OperatorType.TREE_BIT_MOVE, -1.0, treeWeights);
 
@@ -117,7 +122,9 @@ public class PartitionTreeModel extends PartitionOptions {
                     "treeModel.internalNodeHeights", OperatorType.UNIFORM, -1, branchWeights);
 
             // This scale operator is used instead of the up/down if the rate is fixed.
-            new Operator.Builder("treeModel.allInternalNodeHeights", "Scales all internal node heights in tree", getParameter("treeModel.allInternalNodeHeights"), OperatorType.SCALE_ALL, 0.75, rateWeights).build(operators);
+            new Operator.Builder("treeModel.allInternalNodeHeights", "Scales all internal node heights in tree",
+                    getParameter("treeModel.allInternalNodeHeights"), OperatorType.SCALE_ALL, 0.75, rateWeights)
+                    .build(operators);
 
             createOperator("subtreeSlide", "Tree", "Performs the subtree-slide rearrangement of the tree", "tree",
                     OperatorType.SUBTREE_SLIDE, 1.0, treeWeights);
@@ -136,13 +143,47 @@ public class PartitionTreeModel extends PartitionOptions {
             createOperator("FHSPR", "Tree", "Performs the fixed-height subtree prune/regraft of the tree", "tree",
                     OperatorType.FIXED_HEIGHT_SUBTREE_PRUNE_REGRAFT, 1.0, weight);
         } else {
+            // Thorney BEAST operators
+            // Big weights operators
             double weight = Math.max(options.taxonList.getTaxonCount(), 30);
+
+            // does STL works on constrained trees?
             createOperator("subtreeLeap", "Tree", "Performs the subtree-leap rearrangement of the tree", "tree",
                     OperatorType.SUBTREE_LEAP, 1.0, weight);
+            createOperator("uniformSPG", "Tree",
+                    "Performs the subtree prune regraft within a polytomony rearrangement of the tree", "tree",
+                    OperatorType.UNIFORM_SUBTREE_PRUNE_REGRAFT, -1, weight);
 
-            weight = Math.max(weight / 10, 3);
-            createOperator("FHSPR", "Tree", "Performs the fixed-height subtree prune/regraft of the tree", "tree",
-                    OperatorType.FIXED_HEIGHT_SUBTREE_PRUNE_REGRAFT, 1.0, weight);
+            createOperator("treeBitMove", "Tree", "Swaps the rates and change locations of local clocks", "tree",
+                    OperatorType.TREE_BIT_MOVE, -1.0, treeWeights);
+
+            createOperator("uniformHeights", "Internal node heights", "Draws new internal node heights uniformally",
+                    "treeModel.internalNodeHeights", OperatorType.UNIFORM, -1, weight);
+
+            // This scale operator is used instead of the up/down if the rate is fixed.
+            new Operator.Builder("treeModel.allInternalNodeHeights", "Scales all internal node heights in tree",
+                    getParameter("treeModel.allInternalNodeHeights"), OperatorType.SCALE_ALL, 0.75, rateWeights)
+                    .build(operators);
+
+            // In the TB setting this will almost always give the same likelihood since
+            // coalescent doesn't change
+            // and if we are in the non mutation zone the treelikelihood will be the same.
+            // not compatible with constrained tree right now.
+            // createOperator("FHSPR", "Tree", "Performs the fixed-height subtree
+            // prune/regraft of the tree", "tree",
+            // OperatorType.FIXED_HEIGHT_SUBTREE_PRUNE_REGRAFT, 1.0, weight);
+
+            createOperator("narrowExchange", "Tree", "Performs local rearrangements of the tree", "tree",
+                    OperatorType.NARROW_EXCHANGE, -1, weight);
+
+            weight = Math.max(weight / 100, 3);
+            createScaleOperator("treeModel.rootHeight", demoTuning, weight);
+
+            createOperator("wideExchange", "Tree", "Performs global rearrangements of the tree", "tree",
+                    OperatorType.WIDE_EXCHANGE, -1, weight);
+
+            createOperator("wilsonBalding", "Tree", "Performs the Wilson-Balding rearrangement of the tree", "tree",
+                    OperatorType.WILSON_BALDING, -1, weight);
         }
 
         createOperator("empiricalTreeSwap", "Tree", "Sets the current tree from the empirical set", "tree",
@@ -151,10 +192,12 @@ public class PartitionTreeModel extends PartitionOptions {
 
     @Override
     public List<Parameter> selectParameters(List<Parameter> parameters) {
-//        setAvgRootAndRate();
+        // setAvgRootAndRate();
 
-        // Don't add these to the parameter list (as they don't appear in the table), but call
+        // Don't add these to the parameter list (as they don't appear in the table),
+        // but call
         // get parameter so their id prefix can be set.
+
         getParameter("tree");
         getParameter("treeModel.internalNodeHeights");
         getParameter("treeModel.allInternalNodeHeights");
@@ -175,10 +218,22 @@ public class PartitionTreeModel extends PartitionOptions {
 
     @Override
     public List<Operator> selectOperators(List<Operator> operators) {
-//        setAvgRootAndRate();
+        // setAvgRootAndRate();
 
         if (isUsingEmpiricalTrees()) {
             operators.add(getOperator("empiricalTreeSwap"));
+        } else if (isUsingThorneyBEAST()) {
+
+            operators.add(getOperator("treeModel.rootHeight"));
+            operators.add(getOperator("uniformHeights"));
+            // TODO check if there are polytomies otherwise these will error out
+            operators.add(getOperator("uniformSPG"));
+            operators.add(getOperator("narrowExchange"));
+            operators.add(getOperator("wideExchange"));
+            operators.add(getOperator("wilsonBalding"));
+            // TODO add back in once operators is functional
+            // operators.add(getOperator("FHSPR"));
+
         } else {
             if (treePartitionData == null) {
                 Operator subtreeSlideOp = getOperator("subtreeSlide");
@@ -211,7 +266,7 @@ public class PartitionTreeModel extends PartitionOptions {
                     // if not a fixed tree then sample tree space
                     if (options.operatorSetType != OperatorSetType.FIXED_TREE) {
                         if (options.operatorSetType == OperatorSetType.DEFAULT) {
-                            newTreeOperatorsInUse = true;    // default is now the new tree operators
+                            newTreeOperatorsInUse = true; // default is now the new tree operators
                         } else if (options.operatorSetType == OperatorSetType.CLASSIC) {
                             defaultInUse = true;
                             branchesInUse = true;
@@ -275,6 +330,7 @@ public class PartitionTreeModel extends PartitionOptions {
     public void setTreeAsDataType(TreeAsDataType treeAsDataType) {
         this.treeAsDataType = treeAsDataType;
     }
+
     public TreeAsDataType getTreeAsDataType() {
         return treeAsDataType;
     }
@@ -283,9 +339,14 @@ public class PartitionTreeModel extends PartitionOptions {
         return treePartitionData != null && treeAsDataType == TreeAsDataType.EMPRICAL_TREES;
     }
 
+    public boolean isUsingThorneyBEAST() {
+        return treePartitionData != null && treeAsDataType == TreeAsDataType.THORNEY_BEAST;
+    }
+
     public void setUsingExternalEmpiricalTreeFile(boolean isUsingExternalEmpiricalTreeFile) {
         this.isUsingExternalEmpiricalTreeFile = isUsingExternalEmpiricalTreeFile;
     }
+
     public boolean isUsingExternalEmpiricalTreeFile() {
         return isUsingExternalEmpiricalTreeFile;
     }
@@ -299,6 +360,14 @@ public class PartitionTreeModel extends PartitionOptions {
 
     public void setEmpiricalTreesFilename(String empiricalTreesFilename) {
         this.empiricalTreesFilename = empiricalTreesFilename;
+    }
+
+    public double getThorneyScaler() {
+        return thorneyScaler;
+    }
+
+    public void setThorneyScaler(double scaler) {
+        this.thorneyScaler = scaler;
     }
 
     public void setTipCalibrations(boolean hasTipCalibrations) {
@@ -319,21 +388,21 @@ public class PartitionTreeModel extends PartitionOptions {
 
     public double getInitialRootHeight() {
         return Double.NaN;
-//        return getAvgRootAndRate()[0];
+        // return getAvgRootAndRate()[0];
     }
 
-//    public void setInitialRootHeight(double initialRootHeight) {
-//        this.initialRootHeight = initialRootHeight;
-//    }
+    // public void setInitialRootHeight(double initialRootHeight) {
+    // this.initialRootHeight = initialRootHeight;
+    // }
 
-//    private void calculateInitialRootHeightPerTree() {
-//		initialRootHeight = options.clockModelOptions
-//                .calculateInitialRootHeightAndRate(options.getDataPartitions(this)) [0];
-//    }
+    // private void calculateInitialRootHeightPerTree() {
+    // initialRootHeight = options.clockModelOptions
+    // .calculateInitialRootHeightAndRate(options.getDataPartitions(this)) [0];
+    // }
 
     public String getPrefix() {
         String prefix = "";
-        if (options.getPartitionTreeModels().size() > 1) { //|| options.isSpeciesAnalysis()
+        if (options.getPartitionTreeModels().size() > 1) { // || options.isSpeciesAnalysis()
             // There is more than one active partition model
             prefix += getName() + ".";
         }

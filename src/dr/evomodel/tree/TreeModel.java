@@ -262,7 +262,10 @@ public abstract class TreeModel extends AbstractModel implements MutableTreeMode
     public boolean hasBranchLengths() {
         return true;
     }
-
+    abstract public boolean hasNodeTraits();
+    abstract public void swapAllTraits(NodeRef node1, NodeRef node2);
+    abstract public boolean hasRates();
+    
     public double getBranchLength(NodeRef node) {
         NodeRef parent = getParent(node);
         if (parent == null) {

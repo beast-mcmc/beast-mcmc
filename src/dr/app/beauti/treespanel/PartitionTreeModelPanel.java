@@ -37,6 +37,7 @@ import dr.app.beauti.types.TreePriorType;
 import dr.app.beauti.util.BEAUTiImporter;
 import dr.app.beauti.util.PanelUtils;
 import dr.app.gui.components.RealNumberField;
+import dr.app.gui.components.WholeNumberField;
 import dr.app.util.OSType;
 import dr.evolution.datatype.DataType;
 import dr.evolution.tree.NodeRef;
@@ -79,13 +80,16 @@ public class PartitionTreeModelPanel extends OptionsPanel {
 
 
     private JComboBox treeAsDataModelCombo = new JComboBox();
+    private RealNumberField thorneyGenomeLength = new RealNumberField(1.0, Double.MAX_VALUE);
 
     private final OptionsPanel thorneyBEASTPanel;
     private final JLabel thorneyBEASTInfo = new JLabel("<html>" +
             "Use the tree and branch lengths in substitutions per site as data, integrating over unresolved<br> " +
-            "polytomies and sampling branch lengths.<br><br>" +
-            "Citation: du Plessis L, McCrone JT, <i>et al.</i> (2021) Establishment and lineage dynamics of the SARS-CoV-2 epidemic<br>" +
-            "in the UK. <i>Science</i> <b>371</b>, 708-712. DOI:10.1126/science.abf2946</html>");
+            "polytomies and sampling branch lengths.<br><br></html>");
+
+    private final JLabel thorneyBEASTCitation = new JLabel("<html>"+
+    "Citation: du Plessis L, McCrone JT, <i>et al.</i> (2021) Establishment and lineage dynamics of the SARS-CoV-2 epidemic<br>" +
+    "in the UK. <i>Science</i> <b>371</b>, 708-712. DOI:10.1126/science.abf2946 </html>");
 
     private final OptionsPanel empiricalTreePanel;
     private final JLabel empiricalTreeLabel = new JLabel("Trees filename:");
@@ -137,10 +141,9 @@ public class PartitionTreeModelPanel extends OptionsPanel {
         userTreeCombo.setEnabled(enabled);
         userTreeInfo.setEnabled(enabled);
 
-//        for (TreeAsDataType treeAsDataType : TreeAsDataType.values()) {
-//            treeAsDataModelCombo.addItem(treeAsDataType);
-//        }
-        treeAsDataModelCombo.addItem(TreeAsDataType.EMPRICAL_TREES);
+       for (TreeAsDataType treeAsDataType : TreeAsDataType.values()) {
+           treeAsDataModelCombo.addItem(treeAsDataType);
+       }
         PanelUtils.setupComponent(treeAsDataModelCombo);
         treeAsDataModelCombo.addItemListener(ev -> {
             this.partitionTreeModel.setTreeAsDataType((TreeAsDataType)treeAsDataModelCombo.getSelectedItem());
@@ -172,6 +175,27 @@ public class PartitionTreeModelPanel extends OptionsPanel {
 
         thorneyBEASTPanel = new OptionsPanel();
         thorneyBEASTPanel.setOpaque(false);
+
+        PanelUtils.setupComponent(thorneyGenomeLength);
+
+        thorneyGenomeLength.setToolTipText("<html>" +
+                "This scales branches in the input tree <br>" +
+                "to represent expected number of mutations in the genome.<br>" +
+                "It should likely be the length of the alignment to used to build the tree.<html>");
+        thorneyGenomeLength.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(KeyEvent e) {
+            }
+
+            public void keyPressed(KeyEvent e) {
+            }
+
+            public void keyReleased(KeyEvent e) {
+                PartitionTreeModelPanel.this.partitionTreeModel.setThorneyScaler(thorneyGenomeLength.getValue());
+                parent.setDirty();
+            }
+        });
+        thorneyGenomeLength.setColumns(10);
+
 
         PanelUtils.setupComponent(empiricalExternalFileCheck);
         empiricalExternalFileCheck.addActionListener(ev -> {
@@ -252,6 +276,8 @@ public class PartitionTreeModelPanel extends OptionsPanel {
 
             thorneyBEASTPanel.removeAll();
             thorneyBEASTPanel.addComponent(thorneyBEASTInfo);
+            thorneyBEASTPanel.addComponentWithLabel("Scaler", thorneyGenomeLength);
+            thorneyBEASTPanel.addComponent(thorneyBEASTCitation);
 
             empiricalTreePanel.removeAll();
             empiricalTreePanel.addComponent(new JLabel( "Use the loaded trees as an empirical set to sample over."));
@@ -305,6 +331,11 @@ public class PartitionTreeModelPanel extends OptionsPanel {
         treeAsDataModelCombo.setSelectedItem(partitionTreeModel.getTreeAsDataType());
         empiricalExternalFileCheck.setSelected(partitionTreeModel.isUsingExternalEmpiricalTreeFile());
         empiricalFilenameField.setText(partitionTreeModel.getEmpiricalTreesFilename());
+
+        
+        thorneyGenomeLength.setValue(partitionTreeModel.getThorneyScaler());
+        
+
     }
 
     public void getOptions(BeautiOptions options) {

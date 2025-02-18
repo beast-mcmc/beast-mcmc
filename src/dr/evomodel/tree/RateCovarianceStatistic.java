@@ -72,7 +72,7 @@ public class RateCovarianceStatistic extends TreeStatistic {
         for (int i = 0; i < n; i++) {
             NodeRef child = tree.getNode(i);
             NodeRef parent = tree.getParent(child);
-            if (parent != null & !tree.isRoot(parent)) {
+            if (parent != null && !tree.isRoot(parent)) {
                 childRate[index] = branchRateModel.getBranchRate(tree, child);
                 parentRate[index] = branchRateModel.getBranchRate(tree, parent);
                 index += 1;

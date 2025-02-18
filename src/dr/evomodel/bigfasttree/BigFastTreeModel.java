@@ -696,5 +696,27 @@ public class BigFastTreeModel extends TreeModel {
      */
     private final int internalNodeCount;
 
+    private boolean hasRates = false;
+    private boolean hasTraits = false;
+
+    @Override
+    public boolean hasNodeTraits() {
+        // TODO Auto-generated method stub
+        return hasTraits;
+    }
+
+    @Override
+    public void swapAllTraits(NodeRef node1, NodeRef node2) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("BFT model can not have traits! No trait to swap.");
+    }
+
+    @Override
+    public boolean hasRates() {
+        // TODO Auto-generated method stub
+       return hasRates;
+    }
+
+
 
 }

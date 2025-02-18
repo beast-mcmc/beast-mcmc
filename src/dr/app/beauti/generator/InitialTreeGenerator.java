@@ -107,8 +107,39 @@ public class InitialTreeGenerator extends Generator {
                 break;
 
             case RANDOM:
-                // generate a coalescent tree
                 String simulatorId = prefix + STARTING_TREE;
+                String constraintID = prefix + "constraintsTree";
+                if(model.isUsingThorneyBEAST()){
+                    // write tree with dates 
+                    writer.writeComment("The user-specified tree with dates used to simualte a compatible bifurcating starting tree.");
+                    writer.writeOpenTag(
+                            NewickParser.NEWICK,
+                            new Attribute[]{
+                                new Attribute.Default<>(XMLParser.ID, constraintID),
+                                new Attribute.Default<Boolean>(SimpleTreeParser.USING_DATES, options.useTipDates)
+                            }
+                    );
+                    writer.writeText(TreeUtils.newick(model.getTreePartitionData().getTrees().getTrees().get(0)));
+                    writer.writeCloseTag(NewickParser.NEWICK);
+
+                    writer.writeComment("Generate a random starting tree under the coalescent process");
+                    writer.writeOpenTag(
+                        CoalescentSimulatorParser.COALESCENT_SIMULATOR,
+                        new Attribute[]{
+                                new Attribute.Default<String>(XMLParser.ID, simulatorId)
+                        });
+                        writeInitialDemoModelRef(model, writer);
+                        writer.writeTag(
+                            CoalescentSimulatorParser.CONSTRAINTS_TREE,
+                            false
+                        );
+                        writer.writeIDref(NewickParser.NEWICK, constraintID);
+                        writer.writeCloseTag(CoalescentSimulatorParser.CONSTRAINTS_TREE);
+                    writer.writeCloseTag(CoalescentSimulatorParser.COALESCENT_SIMULATOR);
+
+                }else{
+
+                // generate a coalescent tree
 
                 String taxaId = TaxaParser.TAXA;
                 AbstractPartitionData partition = options.getDataPartitions(model).get(0);
@@ -132,6 +163,7 @@ public class InitialTreeGenerator extends Generator {
                     writeInitialDemoModelRef(model, writer);
                     writer.writeCloseTag(CoalescentSimulatorParser.COALESCENT_SIMULATOR);
                 }
+            }
                 break;
 
             default:

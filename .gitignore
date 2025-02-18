@@ -24,6 +24,8 @@ release/Mac
 release/Linux
 release/Windows
 src/revision.txt
+.vscode/launch.json
+.vscode/settings.json
 
 *.citations.txt
 *.ops
